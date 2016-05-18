@@ -141,7 +141,7 @@ void SevSeg::refreshSegments()
 
 enum led_seg getHexDigit(int num, uint8_t shift)
 {
-    enum led_seg mask = LED_HexFont[(num >> shift) & 15];
+    enum led_seg mask = (enum led_seg)pgm_read_byte_near(LED_HexFont + ((num >> shift) & 15));
     return mask;
 }
 
