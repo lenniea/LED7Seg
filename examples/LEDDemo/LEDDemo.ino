@@ -22,11 +22,11 @@
 //
 // It cycles through 5 different modes based on time "counter":
 // 
-//  0-9.9    Shows graphic segment test (A-F,DP) digit-by-digit
-//  10-29.9  Shows scrolling text message
-//  30-49.9  Shows counter as signed X.YY number
-//  50-69.9  Shows counter as unsigned hexadecimal number
-//  70-99.9  Shows time in as XX.Y seconds
+//  0-6.3    Shows graphic segment test (A-F,DP) digit-by-digit
+//  6.4-19.9 Shows scrolling text message
+//  20-29.9  Shows counter as unsigned hexadecimal number
+//  30-39.9  Shows counter as signed X.YY number
+//  40-49.9  Shows time in as XX.Y seconds
 //
 #include "LED7Seg.h"
 
@@ -55,7 +55,7 @@ void loop()
     if (millis() >= ten_msec) {
         ten_msec += 100;
         ++counter;
-        if (counter < 100)
+        if (counter < 64)
         {
             int8_t segment = counter & 7;
             int8_t digit = (counter / 8) % LED_DIGITS;
@@ -67,24 +67,24 @@ void loop()
                 led7seg.showRaw(raw);
             }
         }
-        else if (counter < 300)
+        else if (counter < 200)
         {
             static const char banner[] = "The Quick Brown Fox Jumped Over The Lazy Dogs 0123456789.";
-            const int scroll = ((counter - 100) >> 1) %  (sizeof(banner) - LED_DIGITS);
+            const int scroll = ((counter - 64) >> 1) %  (sizeof(banner) - LED_DIGITS);
             led7seg.showText(banner + scroll);
         }
-        else if (counter < 500)
-        {
-            const int num = counter - 400;
-            // Display encoder value as signed -x.yy
-            led7seg.showDecimal(num, 2);
-        }
-        else if (counter < 700)
+        else if (counter < 300)
         {
             // Display counter in hex dddd
             led7seg.showHex(counter);
         }
-        else if (counter < 1000)
+        else if (counter < 400)
+        {
+            const int num = counter - 350;
+            // Display encoder value as signed -x.yy
+            led7seg.showDecimal(num, 2);
+        }
+        else if (counter < 500)
         {
             // Display counter as unsigned xxx.y
             led7seg.showNumber(counter, 1);
