@@ -14,19 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-//
-// This example demonstrates the functionality of the LED7Seg library
-// optimized for a 3 or 4 digit display.
-//
-// It creates a PWM output on pins D10,D11 compatible with Talon, TalonSRX 
+// This example creates a PWM output on pin D10 compatible with Talon, TalonSRX 
 // and SparkMax FRC motor controllers
 //
-// It monitors the battery voltage on A7:
-//            2.2K             1.0K
-//  VIN  ----/\/\/\-----o-----/\/\/\-------|>
-//                      |
-//                      A7
-// User input is set using a quadrature rotary encoder on D2-D3
+// User input is set using a quadrature rotary encoder on D2-D3 and pushbutton
+// on D0.
+//
+// Values are output on the 4-digit 7-segment LED display.
+//
 // Power is -1.00..+1.00 corresponding to:
 //     1.0 msec (full rev)
 //     1.5 msec (stop)
@@ -49,13 +44,20 @@ SevSeg led7seg;        //Instantiate LED7Seg object
 
 Servo pwmOut;
 
-//           MOD         ENA ENB D1   A   F  D2  D3   B
+//           BUT     GND ENA ENB                         PWM
+//            |       |   |   |                           |
+//            |       |   |   |  D1   A   F  D2  D3   B   |
 //      +-o---o---o---o---o---o---o---o---o---o---o---o---o---o---o-+
 //	    |TX0 RX1 RST GND D2  D3| D4  D5  D6  D7  D8  D9| D10 D11 D12|
 //	    |                      |     Arduino Nano      |            |
 //      |VIN GND RST 5V  A7  A6| A5  A4  A3  A2  A1  A0|REF 3V3 D13 |
 //      +-o---o---o---o---o---o---o---o---o---o---o---o---o---o---o-+
-//                       AIN BAT  E   D  DP   C   G  D4
+//        |   |       |   |   |  E   D  DP   C   G  D4
+//        |   +--POT--+   |   |
+//        |   |   A       |   |
+//       20K 10K  +-------+   |
+//        |   |               |
+//        +---+---------------+
 const byte ledPins[] = { /*segA-F+DP=*/ 5, 9, A2, A4, A5, 6, A1, A3, /*dig1-4=*/ 4, 7, 8, A0};
 
 void setup()
