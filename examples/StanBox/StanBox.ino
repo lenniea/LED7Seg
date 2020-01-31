@@ -54,10 +54,15 @@ Servo pwmOut;
 //      +-o---o---o---o---o---o---o---o---o---o---o---o---o---o---o-+
 //        |   |       |   |   |  E   D  DP   C   G  D4
 //        |   +--POT--+   |   |
-//        |   |   A       |   |
-//       20K 10K  +-------+   |
-//        |   |               |
-//        +---+---------------+
+//        |   |   A-------+   |
+//        |   +-----R1--------+
+//        +---------R2--------+
+
+#define R1        4700L
+#define R2        10000L
+
+#define MAX_BATTERY   (50*(R1+R2)/R1)
+
 const byte ledPins[] = { /*segA-F+DP=*/ 5, 9, A2, A4, A5, 6, A1, A3, /*dig1-4=*/ 4, 7, 8, A0};
 
 void setup()
@@ -65,13 +70,13 @@ void setup()
     Serial.begin(57600);
     pinMode(MODE_PIN, INPUT_PULLUP);
 
-    analogReference(DEFAULT);
     led7seg.begin(COMMON_CATHODE, LED_DIGITS, ledPins);
+    analogReference(DEFAULT);
 	  pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(A6, INPUT);
-    pinMode(A7, INPUT);
-    pinMode(2, INPUT);
-    pinMode(3, INPUT);
+    pinMode(A6, INPUT);       // No pullup for A6
+    pinMode(A7, INPUT);       // No pullup for A7
+    pinMode(2, INPUT_PULLUP);
+    pinMode(3, INPUT_PULLUP);
     digitalWrite(2, HIGH);    // Turn on pullup for D2
     digitalWrite(3, HIGH);    // Turn on pullup for D3
 
@@ -90,13 +95,13 @@ int8_t read_encoder()
 	return enc_states[old_AB & 0x0f];
 }
 
-int counter = 0;
+long counter = 0;
 int16_t analogin = 0;
 int16_t battery = 0;
 
 static unsigned long ten_msec = millis();
 
-void splash()
+void LED_test()
 {
     int8_t segment = counter & 7;
     int8_t digit = (counter / 8) % LED_DIGITS;
@@ -109,7 +114,14 @@ void splash()
     }
 }
 
-uint8_t dispMode = 0;
+typedef enum disp_mode_t
+{
+  BATTERY, POWER, ANALOG, LED_TEST, NUM_MODES
+} DISP_MODE;
+
+#define SECONDS     10        // counts per second
+
+DISP_MODE dispMode = BATTERY;
 
 void loop()
 {
@@ -132,43 +144,55 @@ void loop()
 
 	if (millis() >= ten_msec) {
 		ten_msec += 100;
-		counter = (counter + 1) % 1000;
+		++counter;
    
     static int8_t oldMode = 1;
     int8_t mode_pin = digitalRead(MODE_PIN) ? 1 : 0;
     // Detect falling edge on MODE_PIN
     if ((oldMode ^ mode_pin) && !mode_pin)
     {
-       dispMode = (dispMode + 1) % 4;
+       dispMode = (DISP_MODE) ((dispMode + 1) % NUM_MODES);
        counter = 0;
     }
     oldMode = mode_pin;
 
+    //               _______
+    // FullRev  ____}       |_________________________|
+    //                _______________                  
+    // Stop      ____|               |________________|
+    //                 _______________________         
+    // FullFwd    ____|                       |_______|
+    //
+    int16_t power = encoder >> 2;
+    int16_t usec = power * 5 + 1500;
+    pwmOut.writeMicroseconds(usec);
 
-    if (dispMode == 0) {
-      // Display encoder value as signed -x.yy
-      int16_t power = encoder >> 2;
-//      int16_t power = counter * 2 - 100;
-      led7seg.showDecimal(power, 2);
-      //               _______
-      // FullRev  ____}       |_________________________|
-      //                _______________                  
-      // Stop      ____|               |________________|
-      //                 _______________________         
-      // FullFwd    ____|                       |_______|
-      //
-      int16_t usec = power * 5 + 1500;
-      pwmOut.writeMicroseconds(usec);
-    } else if (dispMode == 1) {
+    switch (dispMode) {
+    case BATTERY:
       // Show battery voltage as xx.y
-      battery = map(analogRead(A6), 0, 1023, 0, 156);
+      battery = map(analogRead(A6), 0, 1023, 0, MAX_BATTERY);
       led7seg.showDecimal(battery, 1);
-    } else if (dispMode == 2) {
+      // After 2 seconds if power != 0.00 switch modes
+      if (counter >= 2*SECONDS && power != 0) {
+          dispMode = POWER;
+          counter = 0;
+      }
+      break;
+    case POWER:
+      // Display encoder value as signed -x.yy
+      led7seg.showDecimal(power, 2);
+      break;
+    case ANALOG:
       // Display analog input as decimal
       analogin = analogRead(A7);
       led7seg.showDecimal(analogin, 0);
-    } else {
-      splash();
+      break;
+    default:
+      LED_test();
+      if (counter >= 3*SECONDS) {
+        dispMode = BATTERY;
+        counter = 0;
+      }
     }
 	}
 	led7seg.refreshSegments(); // Refresh/multiplex display
