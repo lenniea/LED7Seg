@@ -34,7 +34,7 @@
 
 #define MODE_PIN        0     // RXD
 #define ENC_PIN         2     // Pins D2 & D3
-#define PWM_OUT         10
+#define PWM_OUT         11
 
 #define MIN_POWER       -100  // -100%
 #define MAX_POWER       +100  // +100%
@@ -44,9 +44,9 @@ SevSeg led7seg;        //Instantiate LED7Seg object
 
 Servo pwmOut;
 
-//           BUT     GND ENA ENB                         PWM
-//            |       |   |   |                           |
-//            |       |   |   |  D1   A   F  D2  D3   B   |
+//           BUT     GND ENA ENB                             PWM
+//            |       |   |   |                               |
+//            |       |   |   |  D1   A   F  D2  D3   B       |
 //      +-o---o---o---o---o---o---o---o---o---o---o---o---o---o---o-+
 //	    |TX0 RX1 RST GND D2  D3| D4  D5  D6  D7  D8  D9| D10 D11 D12|
 //	    |                      |     Arduino Nano      |            |
@@ -68,8 +68,8 @@ void setup()
     analogReference(DEFAULT);
     led7seg.begin(COMMON_CATHODE, LED_DIGITS, ledPins);
 	  pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(A6, INPUT_PULLUP);
-    pinMode(A7, INPUT_PULLUP);
+    pinMode(A6, INPUT);
+    pinMode(A7, INPUT);
     pinMode(2, INPUT);
     pinMode(3, INPUT);
     digitalWrite(2, HIGH);    // Turn on pullup for D2
@@ -92,6 +92,7 @@ int8_t read_encoder()
 
 int counter = 0;
 int16_t analogin = 0;
+int16_t battery = 0;
 
 static unsigned long ten_msec = millis();
 
@@ -132,16 +133,13 @@ void loop()
 	if (millis() >= ten_msec) {
 		ten_msec += 100;
 		counter = (counter + 1) % 1000;
-    analogin = analogRead(7);
    
     static int8_t oldMode = 1;
     int8_t mode_pin = digitalRead(MODE_PIN) ? 1 : 0;
     // Detect falling edge on MODE_PIN
     if ((oldMode ^ mode_pin) && !mode_pin)
     {
-       Serial.print("mode=");
-       dispMode = (dispMode + 1) % 3;
-       Serial.println(dispMode);
+       dispMode = (dispMode + 1) % 4;
        counter = 0;
     }
     oldMode = mode_pin;
@@ -162,9 +160,12 @@ void loop()
       int16_t usec = power * 5 + 1500;
       pwmOut.writeMicroseconds(usec);
     } else if (dispMode == 1) {
+      // Show battery voltage as xx.y
+      battery = map(analogRead(A6), 0, 1023, 0, 156);
+      led7seg.showDecimal(battery, 1);
+    } else if (dispMode == 2) {
       // Display analog input as decimal
-      Serial.print("in=");
-      Serial.println(analogin);
+      analogin = analogRead(A7);
       led7seg.showDecimal(analogin, 0);
     } else {
       splash();
